@@ -29,8 +29,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # ============================================================
 
 # Turso DB
-TURSO_DB_URL = "https://test-tolaramstudent.aws-ap-south-1.turso.io"
-TURSO_AUTH_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3Njk4Njg2MTcsImlkIjoiNjdiNjgwYjItNmY4NC00ZmRjLTgxZjItMmNkYWQzMmQ2OGVlIiwicmlkIjoiYTc4MTBmNGItNDk1Yy00MDRhLTg0ZTAtOGExZTZhNmRlZjE5In0.5FaYEiGbAUt0EmND11WUfhRFIUvkC3WMoakpRT4RqCkrOIty3SwkiesX-WTDYxmT0nQIr9RHBubQaWb5xZquCg"  # <-- আপনার Turso JWT token বসান
+TURSO_DB_URL = "https//dash-tolaramstudent.aws-ap-south-1.turso.io"
+TURSO_AUTH_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3Njk4NzEyOTQsImlkIjoiZmZhYTFlZWUtOTE2OC00NmZjLWJjYmYtOTRkNTM2NmRmZjIwIiwicmlkIjoiMDlmZGRjYmItOGRiMC00NDY0LTliMDctM2I5OWJlMjhlZmFmIn0.m4PAj1Qkamoo_QBMILJO04jGaFbRJdHaQ9nLkxuzIvPWylHH9OK1DrLJcjkPEXatttyuv9B73K13pmSYGjX7Aw"  # <-- আপনার Turso JWT token বসান
 
 # Worker -> Backend shared secret
 INGEST_TOKEN = "CHANGE_THIS_TO_LONG_RANDOM_SECRET"
