@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1>Mailbox</h1>
+
+  <p class="muted">
+    Address: <code>{{ mailbox.address }}</code>
+  </p>
+
+  <p class="row">
+    <a class="btn" href="{{ url_for('dashboard') }}">← Back</a>
+    <span class="muted">{{ total }} total</span>
+  </p>
+
+  {% if not messages %}
+    <p>No messages yet.</p>
+  {% else %}
+    <div class="card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Received</th>
+            <th>From</th>
+            <th>Subject</th>
+            <th>Size</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for msg in messages %}
+            <tr>
+              <td><code>{{ msg.received_at }}</code></td>
+              <td class="mono">{{ msg.envelope_from }}</td>
+              <td>
+                <a href="{{ url_for('view_message', msg_id=msg.id) }}">
+                  {{ msg.subject or "(no subject)" }}
+                </a>
+              </td>
+              <td>{{ msg.raw_size }} B</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  <div class="pager">
+    {% if offset - limit >= 0 %}
+      <a class="btn" href="{{ url_for('view_mailbox', mailbox_id=mailbox.id, limit=limit, offset=offset-limit) }}">Newer</a>
+    {% endif %}
+    {% if offset + limit < total %}
+      <a class="btn" href="{{ url_for('view_mailbox', mailbox_id=mailbox.id, limit=limit, offset=offset+limit) }}">Older</a>
+    {% endif %}
+  </div>
+{% endblock %}
