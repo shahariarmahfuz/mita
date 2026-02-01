@@ -1,19 +1,88 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1>Signup</h1>
+  <style>
+    .auth-shell {
+      max-width: 520px;
+      margin: 40px auto;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+    }
+    .auth-title {
+      margin: 0 0 6px;
+      font-size: 28px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .auth-subtitle {
+      margin: 0 0 24px;
+      font-size: 14px;
+      color: #64748b;
+    }
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .form-field label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #475569;
+    }
+    .input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      width: 100%;
+    }
+    .btn-primary:hover { background: #1d4ed8; }
+    .muted {
+      color: #64748b;
+      font-size: 14px;
+      margin-top: 20px;
+    }
+  </style>
 
-  <div class="card">
+  <div class="auth-shell">
+    <h1 class="auth-title">Signup</h1>
+    <p class="auth-subtitle">Create your account and get a private inbox in seconds.</p>
+
     <form method="post" action="{{ url_for('signup_post') }}">
-      <label>Email</label>
-      <input class="input" name="email" type="email" required />
+      <div class="form-field">
+        <label>Email</label>
+        <input class="input" name="email" type="email" required placeholder="you@example.com" />
+      </div>
 
-      <label>Password</label>
-      <input class="input" name="password" type="password" required />
+      <div class="form-field">
+        <label>Password</label>
+        <input class="input" name="password" type="password" required placeholder="Minimum 6 characters" />
+      </div>
 
-      <button class="btn btn-primary" type="submit">Create account</button>
+      <button class="btn-primary" type="submit">Create account</button>
     </form>
 
-    <p class="muted" style="margin-top:12px;">
+    <p class="muted">
       Already have an account? <a href="{{ url_for('login') }}">Login</a>
     </p>
   </div>
