@@ -1,85 +1,295 @@
 {% extends "layout.html" %}
+
 {% block content %}
-  <h1>Account</h1>
+<style>
+  /* --- Page Specific Styles --- */
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  @media (min-width: 600px) {
+    .page-header {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
 
-  <div class="row" style="margin-bottom:12px;">
-    <a class="btn" href="{{ url_for('dashboard') }}"><i class="ri-arrow-left-line"></i> Back</a>
-    <a class="btn" href="{{ url_for('view_mailbox', mailbox_id=account.mailbox_id) }}"><i class="ri-inbox-line"></i> View Inbox</a>
-    <button class="btn btn-danger" type="button" data-confirm="delete-account"><i class="ri-delete-bin-6-line"></i> Delete</button>
-  </div>
+  .page-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+  }
 
-  <div class="card">
-    <div class="kv">
-      <div class="k">Gmail</div>
-      <div class="v">
-        <div class="copyline">
-          <span class="mono" id="gmail">{{ account.gmail }}</span>
-          <button class="btn btn-sm" type="button" onclick="copyText('gmail')"><i class="ri-file-copy-line"></i> Copy</button>
-        </div>
-      </div>
+  .action-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
 
-      <div class="k">Generated Password</div>
-      <div class="v">
-        <div class="copyline">
-          <span class="mono" id="genpass">{{ account.generated_password }}</span>
-          <button class="btn btn-sm" type="button" onclick="copyText('genpass')"><i class="ri-file-copy-line"></i> Copy</button>
-        </div>
-        <div class="muted">This password is generated once and will not change.</div>
-      </div>
+  /* Cards */
+  .card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    margin-bottom: 24px;
+  }
 
-      <div class="k">Generated Email</div>
-      <div class="v">
-        <div class="copyline">
-          <span class="mono" id="genemail">{{ account.email }}</span>
-          <button class="btn btn-sm" type="button" onclick="copyText('genemail')"><i class="ri-file-copy-line"></i> Copy</button>
-        </div>
-      </div>
+  /* Key-Value Grid for Account Info */
+  .info-grid {
+    display: grid;
+    gap: 20px;
+  }
 
-      <div class="k">Authenticator Code</div>
-      <div class="v">
-        {% if account.totp_secret %}
-          <div class="copyline">
-            <span class="mono bigcode" id="totpcode">{{ code }}</span>
-            <button class="btn btn-sm" type="button" onclick="copyText('totpcode')"><i class="ri-file-copy-line"></i> Copy</button>
-          </div>
-          <div class="muted">Updates in real-time. Remaining: <span id="remain">{{ remaining }}</span>s</div>
-        {% else %}
-          <div class="muted">Not set yet. Upload QR or paste secret below.</div>
-        {% endif %}
-      </div>
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-bottom: 1px solid #f3f4f6;
+    padding-bottom: 16px;
+  }
+  .info-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
 
-      <div class="k">Authenticator Info</div>
-      <div class="v">
-        <div class="mono">issuer: {{ account.totp_issuer or "-" }}</div>
-        <div class="mono">label: {{ account.totp_label or "-" }}</div>
-        <div class="copyline">
-          <span class="mono" id="totpsecret">secret: {{ account.totp_secret or "-" }}</span>
-          <button class="btn btn-sm" type="button" onclick="copyText('totpsecret')"><i class="ri-file-copy-line"></i> Copy</button>
-        </div>
-      </div>
+  .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .value-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: space-between;
+  }
+
+  .mono-text {
+    font-family: ui-monospace, monospace;
+    font-size: 14px;
+    color: #111827;
+    word-break: break-all;
+  }
+
+  .big-code {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0969da;
+    letter-spacing: 2px;
+  }
+
+  /* Buttons & Inputs */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .btn-default { background: #ffffff; border-color: #d1d5db; color: #374151; }
+  .btn-default:hover { background: #f3f4f6; }
+
+  .btn-primary { background: #0969da; color: #ffffff; }
+  .btn-primary:hover { background: #0a58ca; }
+
+  .btn-danger { background: #fee2e2; color: #cf222e; border-color: #fecaca; }
+  .btn-danger:hover { background: #fecaca; }
+
+  .btn-sm { padding: 4px 8px; font-size: 12px; background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; }
+  .btn-sm:hover { background: #e5e7eb; color: #111827; }
+
+  .input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 16px;
+    box-sizing: border-box;
+  }
+  .input:focus { outline: none; border-color: #0969da; box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+
+  .form-label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; color: #374151; }
+
+  .icon-svg { width: 16px; height: 16px; stroke-width: 1.8; }
+  .muted-text { font-size: 13px; color: #6b7280; margin-top: 4px; }
+  .divider { height: 1px; background: #e5e7eb; margin: 24px 0; }
+
+  /* Modal Styles */
+  .modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 50;
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  .modal.open { display: flex; }
+  
+  .modal-card {
+    background: white; padding: 24px; border-radius: 12px;
+    width: 90%; max-width: 400px;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+  }
+  .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+</style>
+
+  <div class="page-header">
+    <h1 class="page-title">Account Details</h1>
+    <div class="action-bar">
+      <a class="btn btn-default" href="{{ url_for('dashboard') }}">
+        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+        </svg>
+        Back
+      </a>
+      <a class="btn btn-primary" href="{{ url_for('view_mailbox', mailbox_id=account.mailbox_id) }}">
+        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+        </svg>
+        View Inbox
+      </a>
+      <button class="btn btn-danger" type="button" data-confirm="delete-account">
+        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+        </svg>
+        Delete
+      </button>
     </div>
   </div>
 
-  <div class="card" style="margin-top:14px;">
-    <h2 style="margin:0 0 10px 0; font-size:16px;">Set Authenticator (QR or Secret)</h2>
+  <div class="card">
+    <div class="info-grid">
+      
+      <div class="info-item">
+        <div class="label">Gmail Address</div>
+        <div class="value-row">
+          <span class="mono-text" id="gmail">{{ account.gmail }}</span>
+          <button class="btn btn-sm" type="button" onclick="copyText('gmail')">
+            <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5" />
+            </svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="label">Generated Password</div>
+        <div class="value-row">
+          <span class="mono-text" id="genpass">{{ account.generated_password }}</span>
+          <button class="btn btn-sm" type="button" onclick="copyText('genpass')">
+            <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5" />
+            </svg>
+            Copy
+          </button>
+        </div>
+        <div class="muted-text">This password is generated once and will not change.</div>
+      </div>
+
+      <div class="info-item">
+        <div class="label">Generated Email</div>
+        <div class="value-row">
+          <span class="mono-text" id="genemail">{{ account.email }}</span>
+          <button class="btn btn-sm" type="button" onclick="copyText('genemail')">
+            <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5" />
+            </svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="label">Authenticator Code</div>
+        <div class="v">
+          {% if account.totp_secret %}
+            <div class="value-row">
+              <span class="mono-text big-code" id="totpcode">{{ code }}</span>
+              <button class="btn btn-sm" type="button" onclick="copyText('totpcode')">
+                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5" />
+                </svg>
+                Copy
+              </button>
+            </div>
+            <div class="muted-text">Updates automatically. Remaining: <span id="remain" style="font-weight:600; color:#2563eb;">{{ remaining }}</span>s</div>
+          {% else %}
+            <div class="muted-text">Not set yet. Upload QR or paste secret below.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="label">Authenticator Info</div>
+        <div class="v">
+          <div class="mono-text">issuer: {{ account.totp_issuer or "-" }}</div>
+          <div class="mono-text">label: {{ account.totp_label or "-" }}</div>
+          <div class="value-row" style="margin-top:5px;">
+            <span class="mono-text" id="totpsecret" style="color:#6b7280; font-size:12px;">secret: {{ account.totp_secret or "-" }}</span>
+            <button class="btn btn-sm" type="button" onclick="copyText('totpsecret')">
+              <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5" />
+              </svg>
+              Copy
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 16px 0; font-size:18px; font-weight:600; color:#111827;">Set Authenticator</h2>
 
     <form method="post" action="{{ url_for('account_set_authenticator', account_id=account.id) }}" enctype="multipart/form-data">
-      <label>Upload QR image (screenshot/photo)</label>
+      <label class="form-label">Upload QR image (screenshot/photo)</label>
       <input class="input" type="file" name="qr_image" accept="image/*" />
 
-      <label>OR paste secret (Base32)</label>
+      <label class="form-label">OR paste secret (Base32)</label>
       <input class="input" type="text" name="secret" placeholder="JBSWY3DPEHPK3PXP" />
 
-      <button class="btn btn-primary" type="submit"><i class="ri-shield-keyhole-line"></i> Save authenticator</button>
+      <button class="btn btn-primary" type="submit">
+        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Save Authenticator
+      </button>
     </form>
 
-    <p class="muted" style="margin-top:10px;">
-      If the image contains many objects, the system will try to detect only the QR code.
+    <p class="muted-text">
+      System will automatically detect the QR code from the uploaded image.
     </p>
 
     <div class="divider"></div>
+
     <form method="post" action="{{ url_for('account_delete_authenticator', account_id=account.id) }}" id="delete-auth-form">
-      <button class="btn btn-danger" type="button" data-confirm="delete-auth"><i class="ri-delete-bin-line"></i> Remove authenticator</button>
+      <button class="btn btn-danger" type="button" data-confirm="delete-auth">
+        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+        </svg>
+        Remove Authenticator
+      </button>
     </form>
   </div>
 
@@ -87,11 +297,15 @@
 
   <div class="modal" id="confirm-modal" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true">
-      <div class="modal-icon"><i class="ri-alert-line"></i></div>
-      <h3 id="modal-title">Confirm delete</h3>
-      <p id="modal-message" class="muted">Are you sure? This action cannot be undone.</p>
-      <div class="modal-actions">
-        <button class="btn" type="button" data-close-modal>Cancel</button>
+      <div style="display:flex; justify-content:center; margin-bottom:15px; color:#d97706;">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:48px; height:48px;">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+        </svg>
+      </div>
+      <h3 id="modal-title" class="modal-title" style="text-align:center;">Confirm delete</h3>
+      <p id="modal-message" class="muted-text" style="text-align:center; font-size:14px;">Are you sure? This action cannot be undone.</p>
+      <div class="modal-actions" style="justify-content:center;">
+        <button class="btn btn-default" type="button" data-close-modal>Cancel</button>
         <button class="btn btn-danger" type="button" id="modal-confirm">Delete</button>
       </div>
     </div>
@@ -119,11 +333,18 @@
       const raw = el.textContent || "";
       const text = id === "totpsecret" ? raw.replace("secret:", "").trim() : raw.trim();
       navigator.clipboard.writeText(text);
+      
+      // Temporary visual feedback
+      const btn = el.parentElement.querySelector('button');
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = 'Copied!';
+      setTimeout(() => btn.innerHTML = originalHtml, 1500);
     }
 
     // realtime updates
     setInterval(refreshTOTP, 1000);
 
+    // Modal Logic
     const modal = document.getElementById("confirm-modal");
     const modalTitle = document.getElementById("modal-title");
     const modalMessage = document.getElementById("modal-message");
@@ -151,13 +372,13 @@
         if (type === "delete-auth") {
           openModal({
             title: "Remove authenticator?",
-            message: "This will delete the saved authenticator from the server. You can add a new one anytime.",
+            message: "This will delete the saved authenticator. You can add a new one anytime.",
             submitId: "delete-auth-form",
           });
         } else {
           openModal({
             title: "Delete account?",
-            message: "This will delete the account, mailbox, and all messages.",
+            message: "This will delete the account, mailbox, and all messages permanently.",
             submitId: "delete-account-form",
           });
         }
