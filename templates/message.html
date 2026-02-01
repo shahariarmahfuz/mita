@@ -104,6 +104,17 @@
     border-radius: 4px;
     display: inline-block;
   }
+  .message-body {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    font-size: 13px;
+    color: #0f172a;
+    white-space: pre-wrap;
+    max-height: 520px;
+    overflow: auto;
+  }
 
   /* Buttons */
   .btn {
@@ -215,6 +226,13 @@
             </svg>
             Download .eml
           </a>
+        </div>
+      </div>
+
+      <div class="info-item full-width">
+        <div class="label">Message Content</div>
+        <div class="message-body">
+          {{ msg.body_text or msg.body_preview or "No readable content found in this message." }}
         </div>
       </div>
 

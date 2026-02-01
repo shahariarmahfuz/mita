@@ -4,7 +4,8 @@ import threading
 import uuid
 import asyncio
 import secrets
-from datetime import datetime, timezone
+import html as html_lib
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 from urllib.parse import urlparse, parse_qs, unquote
 
@@ -152,6 +153,7 @@ EXEC.run(_db_init())
 
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
+app.permanent_session_lifetime = timedelta(days=30)
 
 
 # ============================================================
@@ -233,6 +235,55 @@ def maybe_parse_headers(raw_eml: bytes):
     except Exception:
         pass
     return parsed_from, parsed_to, parsed_date
+
+def extract_message_bodies(raw_eml: bytes) -> dict:
+    if not raw_eml:
+        return {"text": "", "html": "", "preview": ""}
+
+    text_parts = []
+    html_parts = []
+    try:
+        msg = BytesParser(policy=policy.default).parsebytes(raw_eml)
+    except Exception:
+        return {"text": "", "html": "", "preview": ""}
+
+    def read_part(part):
+        try:
+            return part.get_content()
+        except Exception:
+            payload = part.get_payload(decode=True)
+            if isinstance(payload, bytes):
+                return payload.decode(part.get_content_charset() or "utf-8", errors="replace")
+            return str(payload or "")
+
+    if msg.is_multipart():
+        for part in msg.walk():
+            if part.get_content_maintype() == "multipart":
+                continue
+            if part.get_content_disposition() == "attachment":
+                continue
+            content_type = part.get_content_type()
+            if content_type == "text/plain":
+                text_parts.append(read_part(part))
+            elif content_type == "text/html":
+                html_parts.append(read_part(part))
+    else:
+        content_type = msg.get_content_type()
+        if content_type == "text/plain":
+            text_parts.append(read_part(msg))
+        elif content_type == "text/html":
+            html_parts.append(read_part(msg))
+
+    text_body = "\n\n".join(p.strip() for p in text_parts if p and p.strip())
+    html_body = "\n\n".join(p.strip() for p in html_parts if p and p.strip())
+
+    preview = text_body
+    if not preview and html_body:
+        preview = re.sub(r"<[^>]+>", " ", html_body)
+        preview = html_lib.unescape(preview)
+        preview = re.sub(r"\s+", " ", preview).strip()
+
+    return {"text": text_body, "html": html_body, "preview": preview}
 
 
 # ============================================================
@@ -410,6 +461,7 @@ def login_post():
 
     email = normalize_user_email(request.form.get("email", ""))
     password = (request.form.get("password", "") or "").strip()
+    remember_me = (request.form.get("remember_me") or "").lower() in {"1", "true", "on", "yes"}
 
     rs = db_query("SELECT id, password_hash FROM users WHERE email = ? LIMIT 1", (email,))
     if not rs.rows:
@@ -421,6 +473,7 @@ def login_post():
         flash("Invalid credentials.", "error")
         return redirect(url_for("login"))
 
+    session.permanent = remember_me
     session["uid"] = uid
     session["email"] = email
     return redirect(url_for("dashboard"))
@@ -724,6 +777,39 @@ def view_mailbox(mailbox_id: str):
             "raw_size": r[4],
         })
 
+    selected_message = None
+    selected_id = request.args.get("message")
+    if not selected_id and messages:
+        selected_id = messages[0]["id"]
+
+    if selected_id:
+        srs = db_query(
+            """
+            SELECT id, envelope_from, envelope_to, subject, received_at, raw_size, raw_eml,
+                   parsed_from, parsed_to, parsed_date
+            FROM messages
+            WHERE mailbox_id = ? AND id = ?
+            LIMIT 1
+            """,
+            (mailbox_id, selected_id),
+        )
+        if srs.rows:
+            r = srs.rows[0]
+            bodies = extract_message_bodies(to_bytes(r[6]))
+            selected_message = {
+                "id": r[0],
+                "envelope_from": r[1],
+                "envelope_to": r[2],
+                "subject": r[3],
+                "received_at": r[4],
+                "raw_size": r[5],
+                "parsed_from": r[7],
+                "parsed_to": r[8],
+                "parsed_date": r[9],
+                "body_text": bodies["text"],
+                "body_preview": bodies["preview"],
+            }
+
     mailbox = {
         "id": mailbox_id,
         "address": f"{local_part}@{EMAIL_DOMAIN}",
@@ -734,6 +820,7 @@ def view_mailbox(mailbox_id: str):
         "mailbox.html",
         mailbox=mailbox,
         messages=messages,
+        selected_message=selected_message,
         total=total,
         limit=limit,
         offset=offset,
@@ -747,7 +834,7 @@ def view_message(msg_id: str):
     rs = db_query(
         """
         SELECT msg.id, msg.mailbox_id, msg.envelope_from, msg.envelope_to, msg.subject, msg.received_at,
-               msg.raw_size, msg.parsed_from, msg.parsed_to, msg.parsed_date,
+               msg.raw_size, msg.parsed_from, msg.parsed_to, msg.parsed_date, msg.raw_eml,
                a.local_part, a.id AS account_id
         FROM messages msg
         JOIN accounts a ON a.mailbox_id = msg.mailbox_id
@@ -760,6 +847,7 @@ def view_message(msg_id: str):
         abort(404)
 
     r = rs.rows[0]
+    bodies = extract_message_bodies(to_bytes(r[10]))
     msg = {
         "id": r[0],
         "mailbox_id": r[1],
@@ -771,8 +859,10 @@ def view_message(msg_id: str):
         "parsed_from": r[7],
         "parsed_to": r[8],
         "parsed_date": r[9],
-        "mailbox_address": f"{r[10]}@{EMAIL_DOMAIN}",
-        "account_id": r[11],
+        "mailbox_address": f"{r[11]}@{EMAIL_DOMAIN}",
+        "account_id": r[12],
+        "body_text": bodies["text"],
+        "body_preview": bodies["preview"],
     }
 
     return render_template("message.html", msg=msg)
