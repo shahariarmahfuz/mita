@@ -1,0 +1,10 @@
+river
+cloud
+tiger
+panda
+berry
+stone
+leaf
+eagle
+sun
+moon

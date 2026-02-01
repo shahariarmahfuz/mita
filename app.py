@@ -290,43 +290,22 @@ def extract_message_bodies(raw_eml: bytes) -> dict:
 # Random generators
 # ============================================================
 
-LOCAL_PART_WORDS_A = [
-    "bright",
-    "silent",
-    "lucky",
-    "swift",
-    "happy",
-    "gentle",
-    "fresh",
-    "cool",
-    "smart",
-    "brave",
-]
-LOCAL_PART_WORDS_B = [
-    "river",
-    "cloud",
-    "tiger",
-    "panda",
-    "berry",
-    "stone",
-    "leaf",
-    "eagle",
-    "sun",
-    "moon",
-]
+WORDS_DIR = os.path.dirname(os.path.abspath(__file__))
+LOCAL_PART_WORDS_A = []
+LOCAL_PART_WORDS_B = []
+PASSWORD_WORDS = []
 
-PASSWORD_WORDS = [
-    "Sunrise",
-    "Dream",
-    "River",
-    "Sky",
-    "Forest",
-    "Nova",
-    "Star",
-    "Aurora",
-    "Bliss",
-    "Pixel",
-]
+def load_words(filename: str) -> list[str]:
+    path = os.path.join(WORDS_DIR, filename)
+    with open(path, "r", encoding="utf-8") as handle:
+        words = [line.strip() for line in handle if line.strip()]
+    if not words:
+        raise ValueError(f"No words found in {filename}")
+    return words
+
+LOCAL_PART_WORDS_A = load_words("local_a.txt")
+LOCAL_PART_WORDS_B = load_words("local_b.txt")
+PASSWORD_WORDS = load_words("password.txt")
 
 def random_local_part(_: int = 0) -> str:
     word_a = secrets.choice(LOCAL_PART_WORDS_A)
@@ -534,11 +513,17 @@ def create_account():
     gmail = normalize_gmail(request.form.get("gmail", ""))
 
     # create mailbox + account with unique local_part
-    gen_pass = strong_password(GENERATED_PASSWORD_LEN)
-
     for _ in range(30):
         local = random_local_part(MAILBOX_RANDOM_LEN)
         if not re.match(MAILBOX_REGEX, local):
+            continue
+
+        gen_pass = strong_password(GENERATED_PASSWORD_LEN)
+        prs = db_query(
+            "SELECT 1 FROM accounts WHERE local_part = ? OR generated_password = ? LIMIT 1",
+            (local, gen_pass),
+        )
+        if prs.rows:
             continue
 
         mailbox_id = str(uuid.uuid4())
