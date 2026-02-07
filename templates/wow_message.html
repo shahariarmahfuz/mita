@@ -1,0 +1,229 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<style>
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  @media (min-width: 600px) {
+    .page-header {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+
+  .page-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: #6b7280;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .address-badge {
+    background: #eff6ff;
+    color: #1d4ed8;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-family: ui-monospace, monospace;
+    font-size: 13px;
+    border: 1px solid #dbeafe;
+  }
+
+  .card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    margin-bottom: 24px;
+  }
+
+  .info-grid {
+    display: grid;
+    gap: 20px;
+  }
+
+  @media (min-width: 768px) {
+    .info-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .full-width {
+      grid-column: span 2;
+    }
+  }
+
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-bottom: none;
+    padding-bottom: 12px;
+  }
+
+  .label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .value {
+    font-size: 14px;
+    color: #1f2937;
+    word-break: break-word;
+  }
+
+  .mono-text {
+    font-family: ui-monospace, monospace;
+    font-size: 13px;
+    color: #111827;
+    background: #f9fafb;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+  .message-body {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    font-size: 13px;
+    color: #0f172a;
+    white-space: pre-wrap;
+    max-height: 520px;
+    overflow: auto;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 16px; border-radius: 6px; font-size: 14px; font-weight: 500;
+    text-decoration: none; cursor: pointer; transition: all 0.2s; border: 1px solid transparent;
+  }
+
+  .btn-default { background: #fff; border-color: #d1d5db; color: #374151; }
+  .btn-default:hover { background: #f3f4f6; }
+
+  .btn-primary { background: #0969da; color: #fff; }
+  .btn-primary:hover { background: #0a58ca; }
+
+  .icon-svg { width: 18px; height: 18px; stroke-width: 1.8; }
+</style>
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Message Details</h1>
+      <div class="subtitle">
+        Mailbox: <span class="address-badge">{{ msg.mailbox_address }}</span>
+      </div>
+    </div>
+
+    <div>
+      <a class="btn btn-default" href="{{ url_for('wow_mailbox', mailbox_id=msg.mailbox_id) }}">
+        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+        </svg>
+        Back
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="info-grid">
+
+      <div class="info-item">
+        <div class="label">Message ID</div>
+        <div class="value"><span class="mono-text">{{ msg.id }}</span></div>
+      </div>
+
+      <div class="info-item">
+        <div class="label">Received At</div>
+        <div class="value">
+           <span class="bd-time" data-time="{{ msg.received_at }}">{{ msg.received_at }}</span>
+        </div>
+      </div>
+
+      <div class="info-item full-width">
+        <div class="label">Subject</div>
+        <div class="value" style="font-size:16px; font-weight:600; color:#111827;">
+          {{ msg.subject or "(no subject)" }}
+        </div>
+      </div>
+
+      <div class="info-item">
+        <div class="label">Envelope From</div>
+        <div class="value mono-text">{{ msg.envelope_from }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Envelope To</div>
+        <div class="value mono-text">{{ msg.envelope_to }}</div>
+      </div>
+
+      <div class="info-item">
+        <div class="label">Parsed From</div>
+        <div class="value">{{ msg.parsed_from or "-" }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Parsed To</div>
+        <div class="value">{{ msg.parsed_to or "-" }}</div>
+      </div>
+
+      <div class="info-item">
+        <div class="label">Parsed Date</div>
+        <div class="value mono-text">{{ msg.parsed_date or "-" }}</div>
+      </div>
+
+      <div class="info-item">
+        <div class="label">Raw Content</div>
+        <div class="value" style="margin-top:5px;">
+          <a class="btn btn-primary" href="{{ url_for('wow_download_raw', msg_id=msg.id) }}">
+            <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 9.75V1.5m0 0l3 3m-3-3l-3 3M6.75 6.75h10.5l2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25v-7.5l2.25-2.25Z" />
+            </svg>
+            Download .eml
+          </a>
+        </div>
+      </div>
+
+      <div class="info-item full-width">
+        <div class="label">Message Content</div>
+        <div class="message-body">
+          {{ msg.body_text or msg.body_preview or "No readable content found in this message." }}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const timeElements = document.querySelectorAll('.bd-time');
+      timeElements.forEach(el => {
+        const rawTime = el.getAttribute('data-time');
+        if (rawTime && rawTime !== 'None') {
+          const date = new Date(rawTime);
+          if (!isNaN(date)) {
+            el.textContent = date.toLocaleString('en-BD', {
+              timeZone: 'Asia/Dhaka',
+              month: 'long', day: 'numeric', year: 'numeric',
+              hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true
+            });
+          }
+        }
+      });
+    });
+  </script>
+{% endblock %}
