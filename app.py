@@ -715,6 +715,147 @@ def account_delete(account_id: str):
 # Inbox views (messages per mailbox)
 # ============================================================
 
+@app.get("/wow")
+def wow_mailboxes():
+    rs = db_query(
+        """
+        SELECT a.mailbox_id, a.local_part,
+               (SELECT COUNT(*) FROM messages m WHERE m.mailbox_id = a.mailbox_id) AS msg_count,
+               (SELECT MAX(received_at) FROM messages m WHERE m.mailbox_id = a.mailbox_id) AS last_received
+        FROM accounts a
+        ORDER BY last_received DESC, a.created_at DESC
+        """
+    )
+
+    mailboxes = []
+    for r in (rs.rows or []):
+        mailboxes.append({
+            "id": r[0],
+            "address": f"{r[1]}@{EMAIL_DOMAIN}",
+            "count": int(r[2] or 0),
+            "last_received_at": r[3],
+        })
+
+    return render_template("wow_mailboxes.html", mailboxes=mailboxes)
+
+@app.get("/wow/mailboxes/<mailbox_id>")
+def wow_mailbox(mailbox_id: str):
+    limit = min(max(int(request.args.get("limit", "50")), 1), 200)
+    offset = max(int(request.args.get("offset", "0")), 0)
+
+    ars = db_query(
+        """
+        SELECT a.local_part
+        FROM accounts a
+        WHERE a.mailbox_id = ?
+        LIMIT 1
+        """,
+        (mailbox_id,),
+    )
+    if not ars.rows:
+        abort(404)
+
+    local_part = ars.rows[0][0]
+
+    total_rs = db_query("SELECT COUNT(*) FROM messages WHERE mailbox_id = ?", (mailbox_id,))
+    total = int(total_rs.rows[0][0]) if total_rs.rows else 0
+
+    rs = db_query(
+        """
+        SELECT id, envelope_from, subject, received_at, raw_size
+        FROM messages
+        WHERE mailbox_id = ?
+        ORDER BY received_at DESC
+        LIMIT ? OFFSET ?
+        """,
+        (mailbox_id, limit, offset),
+    )
+
+    messages = []
+    for r in (rs.rows or []):
+        messages.append({
+            "id": r[0],
+            "envelope_from": r[1],
+            "subject": r[2],
+            "received_at": r[3],
+            "raw_size": r[4],
+        })
+
+    mailbox = {
+        "id": mailbox_id,
+        "address": f"{local_part}@{EMAIL_DOMAIN}",
+    }
+
+    return render_template(
+        "wow_messages.html",
+        mailbox=mailbox,
+        messages=messages,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+@app.get("/wow/messages/<msg_id>")
+def wow_message_detail(msg_id: str):
+    rs = db_query(
+        """
+        SELECT msg.id, msg.mailbox_id, msg.envelope_from, msg.envelope_to, msg.subject, msg.received_at,
+               msg.raw_size, msg.parsed_from, msg.parsed_to, msg.parsed_date, msg.raw_eml,
+               a.local_part
+        FROM messages msg
+        JOIN accounts a ON a.mailbox_id = msg.mailbox_id
+        WHERE msg.id = ?
+        LIMIT 1
+        """,
+        (msg_id,),
+    )
+    if not rs.rows:
+        abort(404)
+
+    r = rs.rows[0]
+    bodies = extract_message_bodies(to_bytes(r[10]))
+    msg = {
+        "id": r[0],
+        "mailbox_id": r[1],
+        "envelope_from": r[2],
+        "envelope_to": r[3],
+        "subject": r[4],
+        "received_at": r[5],
+        "raw_size": r[6],
+        "parsed_from": r[7],
+        "parsed_to": r[8],
+        "parsed_date": r[9],
+        "mailbox_address": f"{r[11]}@{EMAIL_DOMAIN}",
+        "body_text": bodies["text"],
+        "body_preview": bodies["preview"],
+    }
+
+    return render_template("wow_message.html", msg=msg)
+
+@app.get("/wow/messages/<msg_id>/raw.eml")
+def wow_download_raw(msg_id: str):
+    rs = db_query(
+        """
+        SELECT a.local_part, msg.raw_eml
+        FROM messages msg
+        JOIN accounts a ON a.mailbox_id = msg.mailbox_id
+        WHERE msg.id = ?
+        LIMIT 1
+        """,
+        (msg_id,),
+    )
+    if not rs.rows:
+        abort(404)
+
+    local_part = rs.rows[0][0]
+    raw_eml = to_bytes(rs.rows[0][1])
+
+    resp = make_response(raw_eml)
+    resp.headers["content-type"] = "message/rfc822"
+    resp.headers["content-disposition"] = f'attachment; filename="{local_part}_{msg_id}.eml"'
+    resp.headers["cache-control"] = "no-store"
+    return resp
+
 @app.get("/mailboxes/<mailbox_id>")
 @login_required
 def view_mailbox(mailbox_id: str):
