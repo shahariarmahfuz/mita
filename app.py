@@ -750,26 +750,21 @@ def account_delete(account_id: str):
 def wow_mailboxes():
     rs = db_query(
         """
-        SELECT m.id, m.local_part, u.email, u.id,
-               (SELECT COUNT(*) FROM messages msg WHERE msg.mailbox_id = m.id) AS msg_count,
-               (SELECT MAX(received_at) FROM messages msg WHERE msg.mailbox_id = m.id) AS last_received
-        FROM mailboxes m
-        JOIN users u ON u.id = m.user_id
-        ORDER BY last_received DESC, m.created_at DESC
+        SELECT a.mailbox_id, a.local_part,
+               (SELECT COUNT(*) FROM messages m WHERE m.mailbox_id = a.mailbox_id) AS msg_count,
+               (SELECT MAX(received_at) FROM messages m WHERE m.mailbox_id = a.mailbox_id) AS last_received
+        FROM accounts a
+        ORDER BY last_received DESC, a.created_at DESC
         """
     )
 
     mailboxes = []
     for r in (rs.rows or []):
-        owner_email = r[2]
-        owner_id = r[3]
         mailboxes.append({
             "id": r[0],
             "address": f"{r[1]}@{EMAIL_DOMAIN}",
-            "count": int(r[4] or 0),
-            "last_received_at": r[5],
-            "owner": "Unassigned" if owner_id == SYSTEM_USER_ID else owner_email,
-            "unassigned": owner_id == SYSTEM_USER_ID,
+            "count": int(r[2] or 0),
+            "last_received_at": r[3],
         })
 
     return render_template("wow_mailboxes.html", mailboxes=mailboxes)
@@ -781,9 +776,9 @@ def wow_mailbox(mailbox_id: str):
 
     ars = db_query(
         """
-        SELECT m.local_part
-        FROM mailboxes m
-        WHERE m.id = ?
+        SELECT a.local_part
+        FROM accounts a
+        WHERE a.mailbox_id = ?
         LIMIT 1
         """,
         (mailbox_id,),
@@ -837,9 +832,9 @@ def wow_message_detail(msg_id: str):
         """
         SELECT msg.id, msg.mailbox_id, msg.envelope_from, msg.envelope_to, msg.subject, msg.received_at,
                msg.raw_size, msg.parsed_from, msg.parsed_to, msg.parsed_date, msg.raw_eml,
-               m.local_part
+               a.local_part
         FROM messages msg
-        JOIN mailboxes m ON m.id = msg.mailbox_id
+        JOIN accounts a ON a.mailbox_id = msg.mailbox_id
         WHERE msg.id = ?
         LIMIT 1
         """,
@@ -872,9 +867,9 @@ def wow_message_detail(msg_id: str):
 def wow_download_raw(msg_id: str):
     rs = db_query(
         """
-        SELECT m.local_part, msg.raw_eml
+        SELECT a.local_part, msg.raw_eml
         FROM messages msg
-        JOIN mailboxes m ON m.id = msg.mailbox_id
+        JOIN accounts a ON a.mailbox_id = msg.mailbox_id
         WHERE msg.id = ?
         LIMIT 1
         """,

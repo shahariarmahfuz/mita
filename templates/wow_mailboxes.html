@@ -30,24 +30,6 @@
   }
   .mailbox-link:hover { text-decoration: underline; }
 
-  .owner-text {
-    margin-top: 6px;
-    font-size: 12px;
-    color: #6b7280;
-  }
-
-  .owner-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: #fef3c7;
-    color: #92400e;
-    padding: 2px 6px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-
   .count-badge {
     background: #eff6ff; color: #1d4ed8; padding: 4px 10px;
     border-radius: 20px; font-size: 12px; font-weight: 600;
@@ -117,12 +99,6 @@
                     </svg>
                     {{ m.address }}
                   </a>
-                  <div class="owner-text">
-                    Owner: {{ m.owner }}
-                    {% if m.unassigned %}
-                      <span class="owner-badge">Unassigned</span>
-                    {% endif %}
-                  </div>
                 </td>
 
                 <td>
