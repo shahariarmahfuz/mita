@@ -54,6 +54,10 @@ ALLOW_SIGNUP = True
 # Optional: mailbox message cap (0=off)
 MAX_MESSAGES_PER_MAILBOX = 0
 
+SYSTEM_USER_ID = "system-orphan"
+SYSTEM_USER_EMAIL = "system-orphan@local"
+SYSTEM_USER_PASSWORD = "orphan-inbox"
+
 
 # ============================================================
 # Async executor (libsql-client needs running event loop)
@@ -201,6 +205,33 @@ def db_execute(sql: str, args=()):
 
 def db_query(sql: str, args=()):
     return EXEC.run(_db_execute(sql, args))
+
+def ensure_system_user() -> str:
+    rs = db_query(
+        "SELECT id FROM users WHERE id = ? OR email = ? LIMIT 1",
+        (SYSTEM_USER_ID, SYSTEM_USER_EMAIL),
+    )
+    if rs.rows:
+        return rs.rows[0][0]
+
+    db_execute(
+        "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+        (SYSTEM_USER_ID, SYSTEM_USER_EMAIL, generate_password_hash(SYSTEM_USER_PASSWORD), now_iso()),
+    )
+    return SYSTEM_USER_ID
+
+def get_or_create_mailbox_id(local_part: str) -> str:
+    mrs = db_query("SELECT id FROM mailboxes WHERE local_part = ? LIMIT 1", (local_part,))
+    if mrs.rows:
+        return mrs.rows[0][0]
+
+    system_id = ensure_system_user()
+    mailbox_id = str(uuid.uuid4())
+    db_execute(
+        "INSERT INTO mailboxes (id, user_id, local_part, created_at) VALUES (?, ?, ?, ?)",
+        (mailbox_id, system_id, local_part, now_iso()),
+    )
+    return mailbox_id
 
 def to_bytes(x):
     if x is None:
@@ -1067,12 +1098,7 @@ def ingest():
     if not raw_size:
         raw_size = len(raw_eml)
 
-    # Only store if mailbox exists (created by user)
-    mrs = db_query("SELECT mailbox_id FROM accounts WHERE local_part = ? LIMIT 1", (mailbox_local,))
-    if not mrs.rows:
-        return {"ok": True, "stored": False, "reason": "mailbox_not_found"}
-
-    mailbox_id = mrs.rows[0][0]
+    mailbox_id = get_or_create_mailbox_id(mailbox_local)
     parsed_from, parsed_to, parsed_date = maybe_parse_headers(raw_eml)
 
     msg_id = str(uuid.uuid4())
